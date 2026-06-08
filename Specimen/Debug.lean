@@ -9,8 +9,18 @@ register_option specimen.debug : Bool := {
   descr := "enable debug messages from Specimen"
 }
 
-/-- Global flag for enabling/diabling debug messages -/
+/-- When true, the scheduler produces maximally many outputs per hypothesis step -/
+register_option specimen.multiOutput : Bool := {
+  defValue := false
+  descr := "allow multi-output production steps in derived generators"
+}
+
+/-- Global flag for enabling/disabling debug messages -/
 def globalDebugFlag : Bool := false
+
+/-- Conditional debug trace for pure contexts. Use as `let _ := schedTrace "msg"`. -/
+macro "schedTrace " msg:interpolatedStr(term) : term =>
+  `(if globalDebugFlag then dbg_trace $msg; () else ())
 
 /-- Determines whether the `specimen.debug` Option flag is set -/
 def inDebugMode [Monad m] [MonadOptions m] : m Bool := do

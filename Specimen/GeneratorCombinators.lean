@@ -62,8 +62,6 @@ def backtrackFuel (fuel : Nat) (total : Nat) (gs : List (Nat × Gen α)) : Gen �
   | .succ fuel' => do
     let n ← Gen.choose Nat 0 (total - 1) (by omega)
     let (k, g, gs') := pickDrop gs n
-    -- Try to generate a value using `g`, if it fails, backtrack with `fuel'`
-    -- and pick one out of the `total - k` remaining generators
     tryCatch g (fun _ => backtrackFuel fuel' (total - k) gs')
 
 /-- Tries all generators until one returns a `Some` value or all the generators failed once with `None`.

@@ -158,7 +158,8 @@ def deriveScheduledChecker' (_args : Array Expr)
           -- This is all done in a state monad: when we detect that a new instance is required, we append it to an array of `TSyntax term`s
           -- (where each term represents a typeclass instance)
           let (subChecker, instances) ← StateT.run (s := #[]) (do
-            let mexp ← MExp.scheduleToMExp schedule (.MId `size) (.MId `initSize) unifyState.outputType freshSizePrimeName
+            let recType := unifyState.outputTypes.headD (mkConst ``Bool)
+            let mexp ← MExp.scheduleToMExp schedule (.MId `size) (.MId `initSize) recType freshSizePrimeName
             MExp.mexpToTSyntax mexp (deriveSort := .Checker))
 
           requiredInstances := requiredInstances ++ instances
@@ -181,7 +182,7 @@ def deriveScheduledChecker' (_args : Array Expr)
 
       if (not requiredInstances.isEmpty) then
         let deduplicatedInstances := List.eraseDups requiredInstances.toList
-        logWarning m!"Required typeclass instances (please derive these first if they aren't already defined):\n{deduplicatedInstances}"
+        trace[plausible.deriving.arbitrary] m!"Required typeclass instances (please derive these first if they aren't already defined):\n{deduplicatedInstances}"
 
       -- Collect all the base / inductive checkers into two Lean list terms
       -- Base checkers are invoked when `size = 0`, inductive checkers are invoked when `size > 0`
