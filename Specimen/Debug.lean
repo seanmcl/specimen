@@ -43,6 +43,22 @@ register_option specimen.textOutput : Nat := {
   descr := "plain-text output verbosity (0=off, 1=summary, 2=problems, 3=full)"
 }
 
+/-- Option to suppress Specimen's `Try this:` suggestion popups for
+    derived checkers/generators/enumerators. When `true`,
+    `derive_checker` / `derive_generator` / `derive_enumerator` silently
+    install the typeclass instance without pretty-printing the
+    expansion. Useful in build configurations where the suggestion text
+    floods the console. -/
+register_option specimen.silent : Bool := {
+  defValue := false
+  descr := "suppress `Try this:` suggestion output from derive_checker/derive_generator/derive_enumerator"
+}
+
+/-- Determines whether `specimen.silent` is set. -/
+def inSilentMode [Monad m] [MonadOptions m] : m Bool := do
+  let opts ← getOptions
+  return Lean.Option.get opts specimen.silent
+
 /-- Global flag for enabling/disabling debug messages -/
 def globalDebugFlag : Bool := false
 

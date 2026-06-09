@@ -1345,9 +1345,11 @@ def elabDeriveGenerator : CommandElab := fun stx => do
     let genFormat ← liftCoreM (PrettyPrinter.ppCommand typeClassInstance)
 
     -- Display the code for the derived generator to the user
-    -- & prompt the user to accept it in the VS Code side panel
-    liftTermElabM $ Tactic.TryThis.addSuggestion stx
-      (Format.pretty genFormat) (header := "Try this generator: ")
+    -- & prompt the user to accept it in the VS Code side panel.
+    -- Suppressed under `set_option specimen.silent true`.
+    unless (← inSilentMode) do
+      liftTermElabM $ Tactic.TryThis.addSuggestion stx
+        (Format.pretty genFormat) (header := "Try this generator: ")
 
     elabCommand typeClassInstance
 
@@ -1365,8 +1367,9 @@ def elabDeriveGeneratorMulti : CommandElab := fun stx => do
     withScope (fun scope => { scope with opts := scope.opts.set `specimen.multiOutput true }) do
       let typeClassInstance ← liftTermElabM <| deriveArbitrarySuchThatInstance descr
       let genFormat ← liftCoreM (PrettyPrinter.ppCommand typeClassInstance)
-      liftTermElabM $ Tactic.TryThis.addSuggestion stx
-        (Format.pretty genFormat) (header := "Try this generator: ")
+      unless (← inSilentMode) do
+        liftTermElabM $ Tactic.TryThis.addSuggestion stx
+          (Format.pretty genFormat) (header := "Try this generator: ")
       elabCommand typeClassInstance
   | _ => throwUnsupportedSyntax
 
@@ -1386,9 +1389,11 @@ def elabDeriveScheduledEnumerator : CommandElab := fun stx => do
     let genFormat ← liftCoreM (PrettyPrinter.ppCommand typeClassInstance)
 
     -- Display the code for the derived enumerator to the user
-    -- & prompt the user to accept it in the VS Code side panel
-    liftTermElabM $ Tactic.TryThis.addSuggestion stx
-      (Format.pretty genFormat) (header := "Try this enumerator: ")
+    -- & prompt the user to accept it in the VS Code side panel.
+    -- Suppressed under `set_option specimen.silent true`.
+    unless (← inSilentMode) do
+      liftTermElabM $ Tactic.TryThis.addSuggestion stx
+        (Format.pretty genFormat) (header := "Try this enumerator: ")
 
     elabCommand typeClassInstance
 
