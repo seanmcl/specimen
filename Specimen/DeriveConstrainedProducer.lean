@@ -1837,6 +1837,24 @@ def deriveEnumSuchThatInstance (tm : Term) : TermElabM Command := do
   let e ← elabTerm tm .none
   withParsedDerivingArgs e deriveEnumSuchThatInstance'
 
+/-- Elaborates a command that Specimen generated for a derived producer/checker/enumerator.
+
+    Every `match` Specimen emits for a `.Match` schedule step carries both the real
+    arm and a `| _ => MFail` catch-all (see `MExp.scheduleStepToMExp`). Rather than
+    predicting whether the catch-all is redundant — which requires re-deriving Lean's
+    own exhaustiveness reasoning and is wrong on shapes like a single-ctor struct that
+    pins one variant of a multi-variant enum in a field — we always emit it and let
+    Lean decide. `match.ignoreUnusedAlts` makes Lean silently drop the catch-all when
+    the real arm is already exhaustive (otherwise a hard `redundantMatchAlt` error)
+    while still reporting `Missing cases` when the arm is genuinely non-exhaustive.
+
+    The option is set in the elaboration environment rather than wrapped around the
+    `match` syntax, so the generated term tree (and the names of the `let rec`
+    auxiliary definitions it produces) is left untouched. -/
+def elabDerivedCommand (cmd : TSyntax `command) : CommandElabM Unit :=
+  withScope (fun scope => { scope with opts := scope.opts.setBool `match.ignoreUnusedAlts true }) do
+    elabCommand cmd
+
 /-- Command for deriving a constrained generator for an inductive relation -/
 syntax (name := generator_deriver) "derive_generator" term : command
 
@@ -1859,7 +1877,7 @@ def elabDeriveGenerator : CommandElab := fun stx => do
       liftTermElabM $ Tactic.TryThis.addSuggestion stx
         (Format.pretty genFormat) (header := "Try this generator: ")
 
-    elabCommand typeClassInstance
+    elabDerivedCommand typeClassInstance
 
   | _ => throwUnsupportedSyntax
 
@@ -1878,7 +1896,7 @@ def elabDeriveGeneratorMulti : CommandElab := fun stx => do
       unless (← inSilentMode) do
         liftTermElabM $ Tactic.TryThis.addSuggestion stx
           (Format.pretty genFormat) (header := "Try this generator: ")
-      elabCommand typeClassInstance
+      elabDerivedCommand typeClassInstance
   | _ => throwUnsupportedSyntax
 
 /-- Command for deriving a constrained enumerator for an inductive relation -/
@@ -1903,7 +1921,7 @@ def elabDeriveScheduledEnumerator : CommandElab := fun stx => do
       liftTermElabM $ Tactic.TryThis.addSuggestion stx
         (Format.pretty genFormat) (header := "Try this enumerator: ")
 
-    elabCommand typeClassInstance
+    elabDerivedCommand typeClassInstance
 
   | _ => throwUnsupportedSyntax
 
@@ -2708,12 +2726,12 @@ def elabDeriveMutual : CommandElab := fun stx => do
           if defCmds.size > 1 then
             if !richOutput && !silent then logInfo m!"  ◆ mutual ({defCmds.size}):\n    {String.intercalate "\n    " specDescs}"
             let mutualCmd ← `(command| mutual $defCmds* end)
-            elabCommand mutualCmd
+            elabDerivedCommand mutualCmd
           else if defCmds.size == 1 then
             if !richOutput && !silent then logInfo m!"  ● {specDescs.head!}"
-            elabCommand defCmds[0]!
+            elabDerivedCommand defCmds[0]!
           for instCmd in instCmds do
-            elabCommand (setInstanceVisibility instCmd attrKind)
+            elabDerivedCommand (setInstanceVisibility instCmd attrKind)
       else
         -- Fallback: no auto-derive, use old per-entry compilation
         let siblings := specMeta.toList
@@ -2738,6 +2756,6 @@ def elabDeriveMutual : CommandElab := fun stx => do
           defCmds := defCmds.push defCmd
           instCmds := instCmds.push instCmd
         let mutualCmd ← `(command| mutual $defCmds* end)
-        elabCommand mutualCmd
+        elabDerivedCommand mutualCmd
         for instCmd in instCmds do
-          elabCommand (setInstanceVisibility instCmd attrKind)
+          elabDerivedCommand (setInstanceVisibility instCmd attrKind)
