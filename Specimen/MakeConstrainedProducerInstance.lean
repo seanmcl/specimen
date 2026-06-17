@@ -208,8 +208,16 @@ def mkConstrainedProducerTypeClassInstance
     let fuelVal := Lean.Option.get (← getOptions) specimen.fuel
     let fuelLit := Syntax.mkNumLit (toString fuelVal)
 
+    -- Give the instance an EXPLICIT, globally-fresh name. An anonymous `instance`
+    -- is auto-named by Lean deterministically from its TYPE, so two modules that
+    -- derive a producer for the same relation (e.g. both auto-deriving a shared
+    -- dependency under `specimen.autoDeriveDeps`) emit the SAME instance name
+    -- (and the same `…match_1` auxiliary) and collide when co-imported. A fresh
+    -- name makes the decl + its match auxiliaries unique, so co-import is fine —
+    -- typeclass resolution still finds an instance. See strata-org/specimen#22.
+    let instName := mkIdent (← Lean.Core.mkFreshUserName `specimenInst)
     -- Produce an instance of the appropriate typeclass containing the definition for the derived producer
-    `(instance $arbitraryTypeParamInstances:bracketedBinder* : $producerTypeClass $targetTypeSyntax (fun $targetVarPattern => @$(mkIdent inductiveName) $args*) where
+    `(instance $instName:ident $arbitraryTypeParamInstances:bracketedBinder* : $producerTypeClass $targetTypeSyntax (fun $targetVarPattern => @$(mkIdent inductiveName) $args*) where
         $producerTypeClassFunction:ident :=
           let rec $innerFunctionIdent:ident $innerParams* $arbitraryTypeParamInstances:bracketedBinder* : $optionTProducerType :=
             $matchExpr
@@ -341,7 +349,17 @@ def mkConstrainedProducerMutualPieces
     let lambdaBody ← `(fun $allInnerParams* => $matchExpr)
     let defCmd ← `(command| def $defIdent : $defType := $lambdaBody)
 
-    -- Emit the instance (differs by deriveSort)
+    -- Emit the instance (differs by deriveSort).
+    -- Give the instance an EXPLICIT name derived from `globalDefName` (which is
+    -- already module-unique via the fresh `specimen_mutual_*` uid). An anonymous
+    -- `instance` is auto-named by Lean deterministically from its TYPE, so two
+    -- modules that auto-derive the same dependency producer (via
+    -- `specimen.autoDeriveDeps`) emit the SAME instance name (and the same
+    -- `…match_1` auxiliary) and collide when co-imported. Naming the instance
+    -- after `globalDefName` makes the decl (and its match auxiliaries)
+    -- module-unique, so co-import is fine — typeclass resolution still finds an
+    -- instance, just under different names. See strata-org/specimen#22.
+    let instName := mkIdent (globalDefName ++ `inst)
     let fuelVal := Lean.Option.get (← getOptions) specimen.fuel
     let fuelLit := Syntax.mkNumLit (toString fuelVal)
     let callArgs : TSyntaxArray `term := #[(⟨fuelLit⟩ : TSyntax `term), (freshSizeIdent : TSyntax `term), (freshSizeIdent : TSyntax `term)] ++ (TSyntaxArray.mk outerParams)
@@ -350,7 +368,7 @@ def mkConstrainedProducerMutualPieces
       | .Checker | .Theorem => do
         let arbitraryTypeParamInstances ← mkTypeClassInstanceBinders typeParams #[``Enum, ``DecidableEq]
         `(command|
-          instance $arbitraryTypeParamInstances:bracketedBinder* : $decOptTypeclass (@$(mkIdent inductiveName) $args*) where
+          instance $instName:ident $arbitraryTypeParamInstances:bracketedBinder* : $decOptTypeclass (@$(mkIdent inductiveName) $args*) where
             $unqualifiedDecOptFn:ident := fun $freshSizeIdent => $callExpr)
       | _ => do
         let producerTypeClass := match producerSort with
@@ -364,7 +382,7 @@ def mkConstrainedProducerMutualPieces
           | .Enumerator => ``Enum
         let arbitraryTypeParamInstances ← mkTypeClassInstanceBinders typeParams #[producerUnconstrainedClass, ``DecidableEq]
         `(command|
-          instance $arbitraryTypeParamInstances:bracketedBinder* : $producerTypeClass $targetTypeSyntax (fun $targetVarPattern => @$(mkIdent inductiveName) $args*) where
+          instance $instName:ident $arbitraryTypeParamInstances:bracketedBinder* : $producerTypeClass $targetTypeSyntax (fun $targetVarPattern => @$(mkIdent inductiveName) $args*) where
             $producerTypeClassFunction:ident := fun $freshSizeIdent => $callExpr)
 
     return (defCmd, instCmd)

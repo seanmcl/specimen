@@ -51,14 +51,14 @@ derive_checker (fun xs n => MemNat xs n)
 #guard_msgs(drop info) in
 derive_generator (fun n => ∃ xs, MemNat xs n)
 
-/--
-info: def instArbitrarySizedSuchThatListNatMemNat.aux_arb : Nat → Nat → Nat → Nat → Gen (List Nat) :=
-fun fuel initSize size n_1 =>
-  Nat.brecOn (motive := fun fuel => Nat → Gen (List Nat)) fuel
-    (instArbitrarySizedSuchThatListNatMemNat.aux_arb._f initSize n_1) size
--/
+-- Derived instances now carry an explicit, globally-fresh name rather than
+-- Lean's deterministic type-derived one (so co-imported modules deriving the
+-- same relation don't collide — see strata-org/specimen#22), so the old
+-- `#print instArbitrarySizedSuchThatListNatMemNat.aux_arb` no longer resolves.
+-- Like Sections 1-4, verify the instance exists via `inferInstance` instead.
+/-- info: inferInstance : ArbitrarySizedSuchThat (List Nat) fun xs => MemNat xs 0 -/
 #guard_msgs in
-#print instArbitrarySizedSuchThatListNatMemNat.aux_arb
+#check (inferInstance : ArbitrarySizedSuchThat (List Nat) (fun xs => MemNat xs 0))
 
 -- ============================================================
 -- Section 6: Generator quality sampling
