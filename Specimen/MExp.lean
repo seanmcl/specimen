@@ -452,6 +452,13 @@ def scheduleStepToMExp (step : ScheduleStep) (defFuel : MExp) (k : MExp) (output
 
     pure $ .MBind .Checker checker [] k
   | .Match explicit scrutinee pattern =>
+    -- Always emit the real arm plus a `| _ => MFail` catch-all. Whether the
+    -- catch-all is actually needed (the scrutinee type has more reachable cases)
+    -- or redundant (an irrefutable single-ctor destructure) is decided by Lean
+    -- itself: derived commands are elaborated with `match.ignoreUnusedAlts` set
+    -- (see `elabDerivedCommand`), which drops a redundant catch-all silently
+    -- while still flagging a genuinely non-exhaustive match. This avoids
+    -- re-implementing Lean's exhaustiveness reasoning here.
     pure $ .MMatch explicit (.MId scrutinee) [(pattern, k), (wildCardPattern, .MFail)]
 
 /-- Converts a `Schedule` (a list of `ScheduleStep`s along with a `ScheduleSort`,

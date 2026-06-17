@@ -269,6 +269,6 @@ def elabDeriveScheduledChecker : CommandElab := fun stx => do
         (Format.pretty genFormat) (header := "Try this checker: ")
 
     -- Elaborate the typeclass instance and add it to the local context
-    elabCommand typeclassInstance
+    elabDerivedCommand typeclassInstance
 
   | _ => throwUnsupportedSyntax

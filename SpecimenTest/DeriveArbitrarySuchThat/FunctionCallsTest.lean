@@ -20,14 +20,10 @@ inductive square_of'' : Nat → _ → Prop where
 inductive square_of''' : Nat → _ → Prop where
   | sq : forall x, square_of''' x (fun (_ : Unit) => x)
 
-/--error: Redundant alternative: Any expression matching
-  _
-will match one of the preceding alternatives
----
-error: Redundant alternative: Any expression matching
-  _
-will match one of the preceding alternatives
--/
+-- A `Prod`-shaped (single-constructor) scrutinee keeps its `| _ => MFail` catch-all;
+-- Lean's `match.ignoreUnusedAlts` (set by Specimen when elaborating derived code)
+-- tolerates the now-redundant catch-all instead of rejecting it. Previously this
+-- produced two `Redundant alternative` errors.
 #guard_msgs(error, drop info) in
 derive_generator (fun n => ∃ (m : Nat), square_of'' m n)
 

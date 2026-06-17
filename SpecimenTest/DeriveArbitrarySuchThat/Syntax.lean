@@ -32,14 +32,9 @@ derive_generator (∃ (b: Bar), Baz b)
 inductive Baz' : Bar → Bar → Prop where
 | isBar2 : Baz' .bar .bar
 
-/-- error: Redundant alternative: Any expression matching
-  _
-will match one of the preceding alternatives
----
-error: Redundant alternative: Any expression matching
-  _
-will match one of the preceding alternatives
--/
+-- `Bar` is single-constructor, so the derived match's `| _ => MFail` catch-all is
+-- redundant; `match.ignoreUnusedAlts` (set by Specimen for derived code) drops it
+-- silently. Previously this produced two `Redundant alternative` errors.
 #guard_msgs(error, drop info) in
 derive_generator (fun a => ∃ b, Baz' a b)
 
