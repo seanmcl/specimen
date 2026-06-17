@@ -1100,7 +1100,19 @@ private def possiblePreSchedulesWithAdvancedPruning (vars : List TypedVar) (hypo
   let remainingVars := List.filter (fun v => not <| fixedVars.contains v) varNames
   let (newCheckedIdxs, newCheckedHyps) := List.unzip <| (collectCheckedHypotheses scheduleEnv fixedVars [])
   let remainingSortedHypotheses := filterWithIndex (fun i _ => i ∉ newCheckedIdxs) sortedHypotheses
-  let rawHypotheses := remainingSortedHypotheses.map (fun (h,vars) => ((h,vars), List.flatten vars))
+  -- A negated premise (`¬ R …`, head `Not`) is a *pure check*: it can never
+  -- bind/produce a variable, only test one once its variables are bound. Such
+  -- hypotheses must NOT enter the producible permutation set: their argument is
+  -- a whole sub-application (e.g. a destructured record), so their variable set
+  -- overlaps essentially every other premise, collapsing the dependency graph
+  -- into one giant SCC and making `enumSchedulesChunkedWithPruning` explore up
+  -- to n! orderings (a non-terminating-in-practice hang, unbounded by
+  -- `maxHeartbeats`). Pull them out and schedule them as final checks — sound,
+  -- since a check binds nothing and can always run last (after every variable
+  -- is instantiated). See https://github.com/strata-org/specimen/issues/20.
+  let (negatedHyps, positiveSortedHypotheses) :=
+    remainingSortedHypotheses.partition (fun (h, _) => h.1 == ``Not)
+  let rawHypotheses := positiveSortedHypotheses.map (fun (h,vars) => ((h,vars), List.flatten vars))
   let sccGroups := computeSCC rawHypotheses
   let connectedHypotheses := sccGroups
                              |>.map (fun scc =>
@@ -1108,9 +1120,14 @@ private def possiblePreSchedulesWithAdvancedPruning (vars : List TypedVar) (hypo
                                 SearchTree.enumDependencySatisfyingOrderingsWithAdvancedPruning hypVarMap (fun (h,_) => hypothesisToVarExpr h)
                                   |>.mapLazyList (List.map <| constructHypothesis typeVars))
   let firstChecks := PreScheduleStep.Checks newCheckedHyps.reverse
+  -- Negated premises run last, after the final `.InstVars` step has bound every
+  -- remaining variable.
+  let lastChecks := PreScheduleStep.Checks (negatedHyps.map (·.1))
   let lazyPreSchedules : LazyList (List (PreScheduleStep HypothesisExpr Name)) := enumSchedulesChunkedWithPruning remainingVars typeVars connectedHypotheses fixedVars sortedHypotheses.length multiOutput
   let nameTypeMap := List.foldl (fun m ⟨name,ty⟩ => NameMap.insert m name ty) ∅ vars
-  let typedPreSchedules : LazyList (List (PreScheduleStep HypothesisExpr TypedVar)) := lazyPreSchedules.mapLazyList ((firstChecks :: ·) ∘ List.map (typePreScheduleStep nameTypeMap))
+  let typedPreSchedules : LazyList (List (PreScheduleStep HypothesisExpr TypedVar)) :=
+    lazyPreSchedules.mapLazyList (fun steps =>
+      firstChecks :: (steps.map (typePreScheduleStep nameTypeMap) ++ [lastChecks]))
   (typedPreSchedules, scheduleEnv)
 
 /-- Computes all possible schedules for a constructor
