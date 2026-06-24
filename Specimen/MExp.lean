@@ -171,6 +171,7 @@ def decOptChecker (prop : MExp) (fuel : MExp) : MExp :=
 partial def constructorExprToMExp (exp : Explicit) (expr : ConstructorExpr) : MExp :=
   match expr with
   | .Unknown u => .MId u
+  | .Hole => .MHole
   | .Ctor c args | .TyCtor c args => .MCtr exp c (constructorExprToMExp exp <$> args)
   | .FuncApp f args => .MApp exp (.MId f) (constructorExprToMExp exp <$> args)
   | .Lit l => .MLit l

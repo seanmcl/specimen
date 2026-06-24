@@ -94,6 +94,7 @@ inductive ScheduleStep
 /-- Pretty-print a ConstructorExpr in readable form -/
 partial def ppConstructorExpr : ConstructorExpr → String
   | .Unknown name => name.toString
+  | .Hole => "_"
   | .Lit (.natVal n) => toString n
   | .Lit (.strVal s) => s!"\"{s}\""
   | .CSort _ => "Sort"
@@ -218,7 +219,11 @@ def hypothesisExprToTSyntaxTerm (hypExpr : HypothesisExpr) : MetaM (TSyntax `ter
   let ctorArgTerms ← ctorArgs.toArray.mapM constructorExprToTSyntaxTerm
   `($(mkIdent ctorName) $ctorArgTerms:term*)
 
-/-- Converts an `Expr` to a `ConstructorExpr` -/
+mutual
+
+/-- Converts an `Expr` to a `ConstructorExpr` ("classifying" the `Expr`: deciding
+    which `ConstructorExpr` variant — variable, constructor, type constructor,
+    function application, literal, etc. — corresponds to it). -/
 partial def exprToConstructorExpr (e : Expr) : MetaM ConstructorExpr := do
   match e with
   | .fvar id =>
@@ -233,22 +238,31 @@ partial def exprToConstructorExpr (e : Expr) : MetaM ConstructorExpr := do
       return .TyCtor name []
     else
       return .FuncApp name []
-  | .app f arg => do
-    let fExpr ← exprToConstructorExpr f
-    let argExpr ← exprToConstructorExpr arg
-    match fExpr with
-    | .TyCtor name args =>
-      return .TyCtor name (args ++ [argExpr])
-    | .Ctor name args =>
-      return .Ctor name (args ++ [argExpr])
-    | .FuncApp name args =>
-      return .FuncApp name (args ++ [argExpr])
+  | .app .. => do
+    -- Classify the application head, then its arguments. We process arguments
+    -- positionally (rather than via the application spine) so we can consult
+    -- each argument's binder info: an argument in an implicit or
+    -- instance-implicit position that cannot itself be classified (e.g. the
+    -- `GetElem?` validity lambda `fun as i => i < as.length`) is replaced by a
+    -- hole, since it is inferable from the explicit arguments. Arguments in
+    -- explicit positions must still classify, as before.
+    let headExpr ← exprToConstructorExpr e.getAppFn
+    let argExprs ← classifyAppArgs e
+    match headExpr with
+    | .TyCtor name args => return .TyCtor name (args ++ argExprs)
+    | .Ctor name args => return .Ctor name (args ++ argExprs)
+    | .FuncApp name args => return .FuncApp name (args ++ argExprs)
     | .Unknown name =>
       throwError m!"exprToConstructorExpr: We do not support higher order application of {name} in Expr {e}"
     | .Lit _ =>
-      throwError m!"exprToConstructorExpr: String and Nat Literals cannot be applied as functions, see: {f} in {e}"
+      throwError m!"exprToConstructorExpr: String and Nat Literals cannot be applied as functions, see: {e.getAppFn} in {e}"
     | .CSort _lvl =>
-      throwError m!"exprToConstructorExpr: String and Nat Literals cannot be applied as functions, see: {f} in {e}"
+      throwError m!"exprToConstructorExpr: String and Nat Literals cannot be applied as functions, see: {e.getAppFn} in {e}"
+    | .Hole =>
+      -- Unreachable: `exprToConstructorExpr` never yields a hole for an
+      -- application head (holes only arise for implicit/instance *arguments*
+      -- in `classifyAppArgs`). A hole applied as a function is nonsensical.
+      throwError m!"exprToConstructorExpr: a hole cannot be applied as a function, see: {e.getAppFn} in {e}"
   | .lit l => return .Lit l
   | .sort lvl => return .CSort lvl
   | .lam .. =>
@@ -265,6 +279,34 @@ partial def exprToConstructorExpr (e : Expr) : MetaM ConstructorExpr := do
   | _ =>
     -- For other expression types (literals, lambdas, etc.), generate a placeholder name
     throwError m!"exprToConstructorExpr can only handle free variables, constants, and applications. Attempted to convert: {e}"
+
+/-- Classifies the arguments of an application `e`, one per argument position.
+
+    An argument in an implicit or instance-implicit position that fails to
+    classify is replaced by a `.Hole` instead of raising — such arguments are
+    always re-inferable from the explicit ones. Arguments in explicit positions
+    are classified normally and a failure there is a genuine error (propagated). -/
+partial def classifyAppArgs (e : Expr) : MetaM (List ConstructorExpr) := do
+  let fn := e.getAppFn
+  let args := e.getAppArgs
+  let fnType ← Meta.inferType fn
+  Meta.forallBoundedTelescope fnType args.size fun bvars _ => do
+    let mut result := #[]
+    for h : i in [:args.size] do
+      let isExplicit ←
+        if h' : i < bvars.size then
+          pure (← bvars[i].fvarId!.getDecl).binderInfo.isExplicit
+        else
+          pure true  -- over-application: extra args are explicit
+      if isExplicit then
+        result := result.push (← exprToConstructorExpr args[i]!)
+      else
+        -- Implicit/instance position: try to classify, fall back to a hole.
+        let ce ← try exprToConstructorExpr args[i]! catch _ => pure .Hole
+        result := result.push ce
+    return result.toList
+
+end
 
 /-- Converts an `Expr` to a `HypothesisExpr` if it is a variable or application of type constructor or function to constructor expressions else throws.
   We also pass in the current constructor name, as a poor person's location info.
@@ -354,7 +396,7 @@ def addConclusionPatternsAndEqualitiesToSchedule (patterns : List (Unknown × Pa
 partial def varsInConstructorExpr : ConstructorExpr → List Name
   | .Unknown u => [u]
   | .Ctor _ args | .FuncApp _ args | .TyCtor _ args => args.flatMap varsInConstructorExpr
-  | .Lit _ | .CSort _ => []
+  | .Lit _ | .CSort _ | .Hole => []
 
 /-- Computes output indices: position i is an output if any output variable appears in it -/
 def computeOutputIndicesForRewrite (hypArgs : List ConstructorExpr) (outputVarNames : List Name) : List Nat :=
