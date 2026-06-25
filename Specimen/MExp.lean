@@ -265,13 +265,30 @@ mutual
     match mexp with
     | .MSort _ => `(Sort _)
     | .MHole => `(_)
-    | .MId v | .MConst v => `($(mkIdent v))
+    -- An *inaccessible* identifier (e.g. the `Inhabited` instance `inst✝` that
+    -- `xs[i]!` elaborates with) names a synthesized local from the *source*
+    -- relation's context. It has no binding in the generated code, so emit a
+    -- hole and let elaboration re-synthesize it. Only implicit/instance args
+    -- ever carry such names; real generator variables have accessible userNames.
+    | .MId v => if v.isInaccessibleUserName || v.hasMacroScopes
+                then `(_) else `($(mkIdent v))
+    | .MConst v => `($(mkIdent v))
     | .MApp explicit func args => do
-      let f ← mexpToTSyntax func deriveSort
-      let compiledArgs ← args.toArray.mapM (fun e => mexpToTSyntax e deriveSort)
-      match explicit with
-      | .allowImplicit => `($f $compiledArgs*)
-      | .allExplicit => `(@$f $compiledArgs*)
+      -- If the application *head* is an inaccessible local (e.g. a synthesized
+      -- instance like `inst✝` applied to its own arguments), the whole term is
+      -- a synthesized instance from the source context — collapse the entire
+      -- application to a hole rather than emitting the un-elaboratable `@_ …`.
+      let headInaccessible := match func with
+        | .MId v => v.isInaccessibleUserName || v.hasMacroScopes
+        | _ => false
+      if headInaccessible then
+        `(_)
+      else
+        let f ← mexpToTSyntax func deriveSort
+        let compiledArgs ← args.toArray.mapM (fun e => mexpToTSyntax e deriveSort)
+        match explicit with
+        | .allowImplicit => `($f $compiledArgs*)
+        | .allExplicit => `(@$f $compiledArgs*)
     | .MCtr explicit ctorName args => do
       let compiledArgs ← args.toArray.mapM (fun e => mexpToTSyntax e deriveSort)
       match explicit with
