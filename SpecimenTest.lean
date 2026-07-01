@@ -18,6 +18,8 @@ import SpecimenTest.DeriveArbitrarySuchThat.DeriveRegExpMatchGenerator
 import SpecimenTest.DeriveArbitrarySuchThat.SimultaneousMatchingTests
 import SpecimenTest.DeriveArbitrarySuchThat.FunctionCallsTest
 import SpecimenTest.DeriveArbitrarySuchThat.GetElemPremiseTest
+import SpecimenTest.DeriveArbitrarySuchThat.DelegatedProducerTest
+import SpecimenTest.DeriveArbitrarySuchThat.DelegatedProducerRepeatedVarTest
 import SpecimenTest.DeriveArbitrarySuchThat.DerivePermutationGenerator
 import SpecimenTest.DeriveArbitrarySuchThat.MutuallyRecursiveRelationsTest
 import SpecimenTest.DeriveArbitrarySuchThat.WithUnfolds
@@ -91,6 +93,9 @@ import SpecimenTest.KeyValueStoreExample.TestKeyValueStoreCheckerGenerators
 import SpecimenTest.CedarExample.Cedar
 import SpecimenTest.CedarExample.CedarCheckerGenerators
 import SpecimenTest.CedarExample.CedarWellTypedTermGenerator
+
+-- Strata Lambda Example: well-typed `LExpr` generator via `HasTypeA`
+import SpecimenTest.StrataLexprGen
 
 -- Arithmetic Compiler Example
 -- Note: ArithCompilerTest and FancyCompilerBuggyTest can't be imported together
