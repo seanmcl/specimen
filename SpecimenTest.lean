@@ -106,4 +106,7 @@ import SpecimenTest.ArithCompiler.FancyCompilerBuggyTest
 -- Schedule quality regression tests
 import SpecimenTest.ScheduleQualityRegressionTest
 
+-- Weight function / modifier customization tests
+import SpecimenTest.WeightCustomizationTest
+
 

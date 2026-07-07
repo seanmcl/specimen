@@ -86,7 +86,8 @@ instance {α : Type} {a : α} [Repr α] [ArbitraryFueled α] [DecidableEq α] : 
 
 deriving instance DecidableEq for PathSet
 
-
+#guard_msgs(drop info) in
+set_option specimen.scoreType "Scoring.SourceQualityScore" in
 set_option specimen.autoDeriveDeps true in
 set_option specimen.multiOutput true in
 #time derive_mutual
