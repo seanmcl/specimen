@@ -2,6 +2,11 @@ import Specimen.LazyList
 import Specimen.Utils
 import Plausible.Gen
 
+-- The `Enum (α × β)` instance is polymorphic over `{α β}` that only co-occur in
+-- its type; keep them at independent universes rather than couple them, so
+-- disable the `checkUnivs` lint for this file.
+set_option linter.checkUnivs false
+
 open LazyList Plausible
 
 /-- An enumerator is a function from `Nat` to `LazyList α`, where the `Nat`

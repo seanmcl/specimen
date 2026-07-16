@@ -1,5 +1,11 @@
 import Specimen.LazyRoseTree
 import Specimen.LazyList
+
+-- `pruneTreeWithScore` / `minTreePruning` are polymorphic over `{α σ}` that only
+-- co-occur in their types; keep them at independent universes rather than couple
+-- them, so disable the `checkUnivs` lint for this file.
+set_option linter.checkUnivs false
+
 namespace SearchTree
 -- An "anchor" is a hypothesis that does NOT commute freely with the hypothesis being
 -- inserted — it shares variables that haven't been instantiated by a more-leftward

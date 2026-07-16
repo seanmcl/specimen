@@ -10,6 +10,12 @@ import Specimen.SearchTree
 import Specimen.Debug
 import Lean.Util.SCC
 
+-- `enumSchedules` / `enumSchedules'` / `enumSchedulesChunked` are polymorphic over
+-- `{α v}` that only ever co-occur in their types; the `checkUnivs` linter flags
+-- this, but we deliberately keep them at independent universes rather than couple
+-- them, so disable the lint for this file.
+set_option linter.checkUnivs false
+
 /-!
 # Schedule Derivation
 
