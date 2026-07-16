@@ -1850,9 +1850,11 @@ def elabDeriveGenerator : CommandElab := fun stx => do
     let genFormat ← liftCoreM (PrettyPrinter.ppCommand typeClassInstance)
 
     -- Display the code for the derived generator to the user
-    -- & prompt the user to accept it in the VS Code side panel
-    liftTermElabM $ Tactic.TryThis.addSuggestion stx
-      (Format.pretty genFormat) (header := "Try this generator: ")
+    -- & prompt the user to accept it in the VS Code side panel.
+    -- Suppressed under `set_option specimen.silent true`.
+    unless (← inSilentMode) do
+      liftTermElabM $ Tactic.TryThis.addSuggestion stx
+        (Format.pretty genFormat) (header := "Try this generator: ")
 
     elabCommand typeClassInstance
 
@@ -1870,8 +1872,10 @@ def elabDeriveGeneratorMulti : CommandElab := fun stx => do
     withScope (fun scope => { scope with opts := scope.opts.set `specimen.multiOutput true }) do
       let typeClassInstance ← liftTermElabM <| deriveArbitrarySuchThatInstance descr
       let genFormat ← liftCoreM (PrettyPrinter.ppCommand typeClassInstance)
-      liftTermElabM $ Tactic.TryThis.addSuggestion stx
-        (Format.pretty genFormat) (header := "Try this generator: ")
+      -- Suppressed under `set_option specimen.silent true`.
+      unless (← inSilentMode) do
+        liftTermElabM $ Tactic.TryThis.addSuggestion stx
+          (Format.pretty genFormat) (header := "Try this generator: ")
       elabCommand typeClassInstance
   | _ => throwUnsupportedSyntax
 
@@ -1891,9 +1895,11 @@ def elabDeriveScheduledEnumerator : CommandElab := fun stx => do
     let genFormat ← liftCoreM (PrettyPrinter.ppCommand typeClassInstance)
 
     -- Display the code for the derived enumerator to the user
-    -- & prompt the user to accept it in the VS Code side panel
-    liftTermElabM $ Tactic.TryThis.addSuggestion stx
-      (Format.pretty genFormat) (header := "Try this enumerator: ")
+    -- & prompt the user to accept it in the VS Code side panel.
+    -- Suppressed under `set_option specimen.silent true`.
+    unless (← inSilentMode) do
+      liftTermElabM $ Tactic.TryThis.addSuggestion stx
+        (Format.pretty genFormat) (header := "Try this enumerator: ")
 
     elabCommand typeClassInstance
 
@@ -2255,7 +2261,11 @@ def elabDeriveMutual : CommandElab := fun stx => do
                 compiledCodeMap := compiledCodeMap.insert key (defStr, instStr)
               catch e =>
                 logWarning m!"Failed to compile {key.inductiveName}{key.outputIndices}{repr key.deriveSort}: {e.toMessageData}"
-            | _ => logWarning m!"No schedule found for {key.inductiveName}{key.outputIndices}"
+            | _ =>
+              -- Advisory only: no schedule for this sub-relation means it falls
+              -- through to the Bool oracle. Suppressed under `specimen.silent`.
+              unless (← inSilentMode) do
+                logWarning m!"No schedule found for {key.inductiveName}{key.outputIndices}"
           compiledComponents := compiledComponents.push (compMeta, defCmds, instCmds)
         -- Build HTML output using ProofWidgets (controlled by specimen.richOutput)
         let richOutput := Lean.Option.get (← getOptions) specimen.richOutput

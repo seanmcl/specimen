@@ -35,6 +35,25 @@ register_option specimen.richOutput : Bool := {
   descr := "emit rich HTML widget output in derive_mutual (disable for faster builds)"
 }
 
+/-- Option to suppress Specimen's advisory derivation output for derived
+    checkers/generators/enumerators. When `true`:
+      * `derive_checker` / `derive_generator` / `derive_enumerator` silently
+        install the typeclass instance without emitting the `Try this:`
+        suggestion, and
+      * the `No schedule found for …` advisory `logWarning` is suppressed.
+    Both are informational (a missing schedule for a sub-relation just means it
+    falls through to the Bool oracle) and flood the console in build
+    configurations that derive many instances. -/
+register_option specimen.silent : Bool := {
+  defValue := false
+  descr := "suppress advisory `Try this:` / `No schedule found` output from derive_checker/derive_generator/derive_enumerator"
+}
+
+/-- Determines whether `specimen.silent` is set. -/
+def inSilentMode [Monad m] [MonadOptions m] : m Bool := do
+  let opts ← getOptions
+  return Lean.Option.get opts specimen.silent
+
 /-- Controls plain-text schedule output verbosity in derive_mutual.
     0 = off, 1 = one-line per spec (name + quality), 2 = full schedules for poor-quality specs,
     3 = full schedules for all specs. Useful for LLM tooling and non-IDE workflows. -/
