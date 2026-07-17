@@ -2281,7 +2281,11 @@ def elabDeriveMutual : CommandElab := fun stx => do
                 compiledCodeMap := compiledCodeMap.insert key (defStr, instStr)
               catch e =>
                 logWarning m!"Failed to compile {key.inductiveName}{key.outputIndices}{repr key.deriveSort}: {e.toMessageData}"
-            | _ => logWarning m!"No schedule found for {key.inductiveName}{key.outputIndices}"
+            | _ =>
+              -- Advisory only: no schedule for this sub-relation means it falls
+              -- through to the Bool oracle. Suppressed under `specimen.silent`.
+              unless (← inSilentMode) do
+                logWarning m!"No schedule found for {key.inductiveName}{key.outputIndices}"
           compiledComponents := compiledComponents.push (compMeta, defCmds, instCmds)
         -- Build HTML output using ProofWidgets (controlled by specimen.richOutput).
         -- `specimen.silent` suppresses all informational output below.
